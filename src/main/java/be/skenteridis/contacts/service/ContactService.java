@@ -22,16 +22,19 @@ public class ContactService {
         mapper = new ContactMapper();
     }
 
-    public ContactOutputDTO addContact(ContactInputDTO dto) {
+    private ContactOutputDTO tryRepositorySave(Contact contact) {
         try {
-            return mapper.toDTO(
-                    repository.save(
-                            mapper.toContact(dto)
-                    )
-            );
+            return mapper.toDTO(repository.save(contact));
         } catch (DataIntegrityViolationException e) {
-            throw new DuplicateContactInformationException(e.getMessage());
+            // very cursed constraint checking :')
+            throw new DuplicateContactInformationException(
+                    (e.getMessage().contains("Key (email)") ? "E-Mail" : "Phone") + " already exists!"
+            );
         }
+    }
+
+    public ContactOutputDTO addContact(ContactInputDTO dto) {
+        return tryRepositorySave(mapper.toContact(dto));
     }
 
     public ContactOutputDTO updateContact(Long id, ContactInputDTO dto) {
@@ -39,11 +42,7 @@ public class ContactService {
         contact.setName(dto.getName());
         contact.setPhone(dto.getPhone());
         contact.setEmail(dto.getEmail());
-        try {
-            return mapper.toDTO(repository.save(contact));
-        } catch (DataIntegrityViolationException e) {
-            throw new DuplicateContactInformationException(e.getMessage());
-        }
+        return tryRepositorySave(contact);
     }
 
     public void deleteContact(Long id) {
